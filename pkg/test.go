@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -20,11 +22,23 @@ type page struct {
 	Title string
 }
 
+func (s *server) write_log(str string) {
+	file, err := os.OpenFile("log.txt", os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		log.Print(err)
+	}
+
+	defer file.Close()
+
+	fmt.Fprintf(file, str+"\n")
+}
+
 func (s *server) not_found(w http.ResponseWriter, req *http.Request) {
 	tmp, err := template.ParseFiles("404.html")
 
 	if err != nil {
-		panic(err)
+		s.write_log("Template Parse Error. from function not_found(w http.ResponseWriter, req *http.Request)")
+		return
 	}
 
 	w.Header().Set("Content-Type:", "text/html")
@@ -32,24 +46,25 @@ func (s *server) not_found(w http.ResponseWriter, req *http.Request) {
 	err = tmp.Execute(w, nil)
 
 	if err != nil {
-		panic(err)
+		s.write_log("Template Execute Error.")
 	}
 }
 
-func (s *server) send_image(w http.ResponseWriter, req *http.Request, str string) {
-	exist, err_exist := os.Stat(str)
+func (s *server) get_filesize(name string) int64 {
+	exist, err := os.Stat(name)
 
-	if err_exist != nil {
-		s.not_found(w, req)
-		return
+	if err != nil {
+		return 0
 	}
 
-	size := exist.Size()
+	return exist.Size()
+}
 
-	file, err := os.Open(str)
+func (s *server) read_file(name string, size int64) []byte {
+	file, err := os.Open(name)
 	defer file.Close()
 	if err != nil {
-		panic(err)
+		s.write_log("File Open Error. from function read_file(name sting, size int64) []byte")
 	}
 
 	buf := make([]byte, size)
@@ -58,13 +73,23 @@ func (s *server) send_image(w http.ResponseWriter, req *http.Request, str string
 		if n == 0 {
 			break
 		}
-
 		if err != nil {
 			break
 		}
 	}
 
-	w.Write(buf)
+	return buf
+}
+
+func (s *server) send_image(w http.ResponseWriter, req *http.Request, str string) {
+	size := s.get_filesize(str)
+
+	if size == 0 {
+		s.not_found(w, req)
+		return
+	}
+
+	w.Write(s.read_file(str, size))
 }
 
 func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
@@ -84,13 +109,13 @@ func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 			tmp, err := template.New("new").Parse("<h1>{{.Title}}</h1><img src='test.jpg'>")
 
 			if err != nil {
-				panic(err)
+				s.write_log("Template Parse Error. from function Handler")
 			}
 
 			err = tmp.Execute(w, page)
 
 			if err != nil {
-				panic(err)
+				s.write_log("Template Execute Error. from function Handler")
 			}
 		}
 
