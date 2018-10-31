@@ -4,7 +4,7 @@ import "net/http"
 import "./pkg"
 
 func main() {
-	i := new(pkg.Server)
+	i := pkg.GetInstance()
 	http.HandleFunc("/", i.Handler)
 	http.ListenAndServe(":8080", nil)
 }

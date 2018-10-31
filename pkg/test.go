@@ -13,14 +13,14 @@ type serverMethods interface {
 	handler(w http.ResponseWriter, req *http.Request)
 }
 
-type Server struct {
+type server struct {
 }
 
 type page struct {
 	Title string
 }
 
-func (s *Server) not_found(w http.ResponseWriter, req *http.Request) {
+func (s *server) not_found(w http.ResponseWriter, req *http.Request) {
 	tmp, err := template.ParseFiles("404.html")
 
 	if err != nil {
@@ -36,7 +36,7 @@ func (s *Server) not_found(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) send_image(w http.ResponseWriter, req *http.Request, str string) {
+func (s *server) send_image(w http.ResponseWriter, req *http.Request, str string) {
 	exist, err_exist := os.Stat(str)
 
 	if err_exist != nil {
@@ -67,7 +67,7 @@ func (s *Server) send_image(w http.ResponseWriter, req *http.Request, str string
 	w.Write(buf)
 }
 
-func (s *Server) Handler(w http.ResponseWriter, req *http.Request) {
+func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
 		// w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
@@ -95,4 +95,10 @@ func (s *Server) Handler(w http.ResponseWriter, req *http.Request) {
 		}
 
 	}
+}
+
+var instance *server = new(server)
+
+func GetInstance() *server {
+	return instance
 }
