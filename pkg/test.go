@@ -81,17 +81,26 @@ func (s *server) read_file(name string, size int64) []byte {
 	return buf
 }
 
-func (s *server) send_byte(w http.ResponseWriter, req *http.Request, str string) {
-	size := s.get_filesize(str)
+type send_byte_struct struct {
+	filename string
+	is_css   bool
+}
+
+func (s *server) send_byte(w http.ResponseWriter, req *http.Request, data send_byte_struct) {
+	size := s.get_filesize(data.filename)
 
 	if size == 0 {
 		s.not_found(w, req)
 		return
 	}
 
-	tmp := s.read_file(str, size)
+	tmp := s.read_file(data.filename, size)
 
 	mime := http.DetectContentType(tmp)
+
+	if data.is_css {
+		mime = "text/css"
+	}
 
 	fmt.Println(mime)
 
@@ -109,9 +118,11 @@ func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 		str := req.URL.Path
 
 		if reg.MatchString(str) {
-			s.send_byte(w, req, str[1:])
+			data := send_byte_struct{str[1:], false}
+			s.send_byte(w, req, data)
 		} else if css.MatchString(str) {
-			s.send_byte(w, req, str[1:])
+			data := send_byte_struct{str[1:], true}
+			s.send_byte(w, req, data)
 		} else {
 
 			page := page{"Alice in Wonderland"}
