@@ -81,7 +81,7 @@ func (s *server) read_file(name string, size int64) []byte {
 	return buf
 }
 
-func (s *server) send_image(w http.ResponseWriter, req *http.Request, str string) {
+func (s *server) send_byte(w http.ResponseWriter, req *http.Request, str string) {
 	size := s.get_filesize(str)
 
 	if size == 0 {
@@ -89,7 +89,15 @@ func (s *server) send_image(w http.ResponseWriter, req *http.Request, str string
 		return
 	}
 
-	w.Write(s.read_file(str, size))
+	tmp := s.read_file(str, size)
+
+	mime := http.DetectContentType(tmp)
+
+	fmt.Println(mime)
+
+	w.Header().Set("Content-Type", mime)
+
+	w.Write(tmp)
 }
 
 func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
@@ -97,22 +105,31 @@ func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 		// w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		reg := regexp.MustCompile(`[a-z0-9]*.[jpg | png | gif]`)
+		css := regexp.MustCompile(`css/[a-z0-9]*.css`)
 		str := req.URL.Path
 
-		if reg.MatchString(str) == true {
-			s.send_image(w, req, str[1:])
+		if reg.MatchString(str) {
+			s.send_byte(w, req, str[1:])
+		} else if css.MatchString(str) {
+			s.send_byte(w, req, str[1:])
 		} else {
 
 			page := page{"Alice in Wonderland"}
-			// tmp, err := template.ParseFiles("index.html")
+			tmp := template.Must(template.ParseFiles(
+				"base.html",
+				"index.html"))
 
-			tmp, err := template.New("new").Parse("<h1>{{.Title}}</h1><img src='test.jpg'>")
+			// tmp, err := template.New("new").Parse("<h1>{{.Title}}</h1><img src='test.jpg'>")
 
-			if err != nil {
-				s.write_log("Template Parse Error. from function Handler")
-			}
+			/*
+				if err != nil {
+					s.write_log("Template Parse Error. from function Handler")
+				}
+			*/
 
-			err = tmp.Execute(w, page)
+			w.Header().Set("Content-Type", "text/html")
+
+			err := tmp.Execute(w, page)
 
 			if err != nil {
 				s.write_log("Template Execute Error. from function Handler")

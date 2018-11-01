@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Test</title>
-    </head>
-
-    <body>
-        {{.Title}}
-    </body>
-</html>
-
+{{ define "index" }}
+<h1>{{ .Title }}</h1>
+<img src="test.jpg">
+{{ end }}

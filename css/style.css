@@ -1,0 +1,14 @@
+@charset  "utf-8";
+
+body {
+    padding: 0;
+    margin: 0;
+}
+
+div#header {
+    color: red;
+}
+
+h1 {
+    background-color: red;
+}
