@@ -1,11 +1,14 @@
 package pkg
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"text/template"
 )
 
@@ -37,7 +40,7 @@ func (s *server) not_found(w http.ResponseWriter, req *http.Request) {
 	tmp, err := template.ParseFiles("404.html")
 
 	if err != nil {
-		s.write_log("Template Parse Error. from function not_found(w http.ResponseWriter, req *http.Request)")
+		s.write_log("Template Parse Error, from function not_found(w http.ResponseWriter, req *http.Request)")
 		return
 	}
 
@@ -81,6 +84,42 @@ func (s *server) read_file(name string, size int64) []byte {
 	return buf
 }
 
+func (s *server) encode_byte_to_gzip(buf []byte) (*bytes.Buffer, bool) {
+	tmp := new(bytes.Buffer)
+	gw := gzip.NewWriter(tmp)
+
+	_, err := gw.Write(buf)
+
+	if err != nil {
+		s.write_log("Error, gzip encode execute failed.")
+		return tmp, false
+	}
+
+	err = gw.Close()
+
+	if err != nil {
+		s.write_log("Error, gzip.NewWriter().Close() failed.")
+		return tmp, false
+	}
+
+	return tmp, true
+}
+
+func (s *server) last_send_process(w http.ResponseWriter, req *http.Request, mime string, buf []byte) {
+
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		tmp, check := s.encode_byte_to_gzip(buf)
+		if check {
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Set("Content-Type", mime)
+			tmp.WriteTo(w)
+		}
+	} else {
+		w.Header().Set("Content-Type", mime)
+		w.Write(buf)
+	}
+}
+
 type send_byte_struct struct {
 	filename string
 	is_css   bool
@@ -104,9 +143,35 @@ func (s *server) send_byte(w http.ResponseWriter, req *http.Request, data send_b
 
 	fmt.Println(mime)
 
-	w.Header().Set("Content-Type", mime)
+	s.last_send_process(w, req, mime, tmp)
+}
 
-	w.Write(tmp)
+func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
+
+	url := req.URL.Path
+
+	if url == "/" || url == "/index" {
+
+		page := page{"Alice in Wonderland"}
+
+		tmp := template.Must(template.ParseFiles(
+			"base.html",
+			"index.html"))
+
+		w.Header().Set("Content-Type", "text/html")
+
+		buf := new(bytes.Buffer)
+		err := tmp.Execute(buf, page)
+
+		if err != nil {
+			s.write_log("Template Execute Error, from function Handler")
+		}
+
+		s.last_send_process(w, req, "text/html", buf.Bytes())
+
+	} else {
+		s.not_found(w, req)
+	}
 }
 
 func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
@@ -125,26 +190,16 @@ func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 			s.send_byte(w, req, data)
 		} else {
 
-			page := page{"Alice in Wonderland"}
-			tmp := template.Must(template.ParseFiles(
-				"base.html",
-				"index.html"))
+			s.send_html(w, req)
 
 			// tmp, err := template.New("new").Parse("<h1>{{.Title}}</h1><img src='test.jpg'>")
 
 			/*
 				if err != nil {
-					s.write_log("Template Parse Error. from function Handler")
+					s.write_log("Template Parse Error, from function Handler")
 				}
 			*/
 
-			w.Header().Set("Content-Type", "text/html")
-
-			err := tmp.Execute(w, page)
-
-			if err != nil {
-				s.write_log("Template Execute Error. from function Handler")
-			}
 		}
 
 	}
