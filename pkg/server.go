@@ -12,10 +12,21 @@ import (
 	"text/template"
 )
 
+type send_byte_struct struct {
+	filename string
+	is_css   bool
+}
+
 type serverMethods interface {
+	write_log(str string)
 	not_found(w http.ResponseWriter, req *http.Request)
-	sned_image(w http.ResponseWriter, req *http.Request, str string)
-	handler(w http.ResponseWriter, req *http.Request)
+	get_filesize(name string) int64
+	read_file(name string, size int64) []byte
+	encode_byte_to_gzip(buf []byte) (*bytes.Buffer, bool)
+	last_send_process(w http.ResponseWriter, req *http.Request, mime string, buf []byte)
+	sned_byte(w http.ResponseWriter, req *http.Request, data send_byte_struct)
+	send_html(w http.ResponseWriter, req *http.Request)
+	Handler(w http.ResponseWriter, req *http.Request)
 }
 
 type server struct {
@@ -120,11 +131,6 @@ func (s *server) last_send_process(w http.ResponseWriter, req *http.Request, mim
 	}
 }
 
-type send_byte_struct struct {
-	filename string
-	is_css   bool
-}
-
 func (s *server) send_byte(w http.ResponseWriter, req *http.Request, data send_byte_struct) {
 	size := s.get_filesize(data.filename)
 
@@ -150,13 +156,13 @@ func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
 
 	url := req.URL.Path
 
-	if url == "/" || url == "/index" {
+	if url == "/" {
 
 		page := page{"Alice in Wonderland"}
 
 		tmp := template.Must(template.ParseFiles(
-			"base.html",
-			"index.html"))
+			"base.tmpl",
+			"index.tmpl"))
 
 		w.Header().Set("Content-Type", "text/html")
 
@@ -176,17 +182,18 @@ func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
 
 func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
-		// w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		reg := regexp.MustCompile(`[a-z0-9]*.[jpg | png | gif]`)
 		css := regexp.MustCompile(`css/[a-z0-9]*.css`)
-		str := req.URL.Path
+		path := req.URL.Path
 
-		if reg.MatchString(str) {
-			data := send_byte_struct{str[1:], false}
+		fmt.Println(path)
+
+		if reg.MatchString(path) {
+			data := send_byte_struct{path[1:], false}
 			s.send_byte(w, req, data)
-		} else if css.MatchString(str) {
-			data := send_byte_struct{str[1:], true}
+		} else if css.MatchString(path) {
+			data := send_byte_struct{path[1:], true}
 			s.send_byte(w, req, data)
 		} else {
 
