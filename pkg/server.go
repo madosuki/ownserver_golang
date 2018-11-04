@@ -155,8 +155,9 @@ func (s *server) send_byte(w http.ResponseWriter, req *http.Request, data send_b
 func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
 
 	url := req.URL.Path
+	index := regexp.MustCompile(`/|index.html`)
 
-	if url == "/" {
+	if index.MatchString(url) {
 
 		page := page{"Alice in Wonderland"}
 
@@ -183,30 +184,21 @@ func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
 func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
 
-		reg := regexp.MustCompile(`[a-z0-9]*.[jpg | png | gif]`)
+		reg := regexp.MustCompile(`[a-z0-9]*.jpg|png|gif`)
 		css := regexp.MustCompile(`css/[a-z0-9]*.css`)
 		path := req.URL.Path
 
 		fmt.Println(path)
 
 		if reg.MatchString(path) {
+			fmt.Println("I received request to Image File from user.")
 			data := send_byte_struct{path[1:], false}
 			s.send_byte(w, req, data)
 		} else if css.MatchString(path) {
 			data := send_byte_struct{path[1:], true}
 			s.send_byte(w, req, data)
 		} else {
-
 			s.send_html(w, req)
-
-			// tmp, err := template.New("new").Parse("<h1>{{.Title}}</h1><img src='test.jpg'>")
-
-			/*
-				if err != nil {
-					s.write_log("Template Parse Error, from function Handler")
-				}
-			*/
-
 		}
 
 	}

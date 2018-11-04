@@ -19,6 +19,10 @@
 *.png
 *.gif
 *.bmp
+*.mp4
+*.m2ts
+*.ts
+*.m4s
 
 Thumbs.db
 
