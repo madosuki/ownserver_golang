@@ -209,9 +209,9 @@ var instance *server = constructor()
 func constructor() *server {
 	i := new(server)
 
-	i.is_index = regexp.MustCompile(`/|index.html`)
-	i.is_picture = regexp.MustCompile(`[a-z0-9]*.jpg|png|gif|webp`)
-	i.is_css = regexp.MustCompile(`css/[a-z0-9]*.css`)
+	i.is_index = regexp.MustCompile(`index.html|^/$`)
+	i.is_picture = regexp.MustCompile(`/[[:word:]]*.jpg|png|gif|webp$`)
+	i.is_css = regexp.MustCompile(`/css/[[:word:]]*.css$`)
 
 	return i
 }
