@@ -1,0 +1,18 @@
+{{ define "body" }}
+
+
+<h1>K-ON! Movie</h1>
+
+<div>
+    <video controls id="video_player"></video>
+</div>
+<script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+<script>
+    (function() {
+        const url = "videos/K_ON_Movie/out.mpd";
+        const player = dashjs.MediaPlayer().create();
+        player.initialize(document.querySelector("#video_player"), url, true);
+        })();
+</script>
+
+{{ end }}

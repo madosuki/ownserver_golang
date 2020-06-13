@@ -12,34 +12,35 @@ import (
 	"text/template"
 )
 
-type send_byte_struct struct {
+type sendByteStruct struct {
 	filename string
-	is_css   bool
+	isCSS    bool
 }
 
 type serverMethods interface {
-	write_log(str string)
-	not_found(w http.ResponseWriter, req *http.Request)
-	get_filesize(name string) int64
-	read_file(name string, size int64) []byte
-	encode_byte_to_gzip(buf []byte) (*bytes.Buffer, bool)
-	last_send_process(w http.ResponseWriter, req *http.Request, mime string, buf []byte)
-	sned_byte(w http.ResponseWriter, req *http.Request, data send_byte_struct)
-	send_html(w http.ResponseWriter, req *http.Request)
+	writeLog(str string)
+	notFound(w http.ResponseWriter, req *http.Request)
+	getFileSize(name string) int64
+	readFile(name string, size int64) []byte
+	encodeByteToGzip(buf []byte) (*bytes.Buffer, bool)
+	lastSendProcess(w http.ResponseWriter, req *http.Request, mime string, buf []byte)
+	snedByte(w http.ResponseWriter, req *http.Request, data sendByteStruct)
+	sendHtml(w http.ResponseWriter, req *http.Request)
 	Handler(w http.ResponseWriter, req *http.Request)
 }
 
 type server struct {
-	is_index   *regexp.Regexp
-	is_picture *regexp.Regexp
-	is_css     *regexp.Regexp
+	isIndex   *regexp.Regexp
+	isPicture *regexp.Regexp
+	isCSS     *regexp.Regexp
+	isVideo   *regexp.Regexp
 }
 
 type page struct {
 	Title string
 }
 
-func (s *server) write_log(str string) {
+func (s *server) writeLog(str string) {
 	file, err := os.OpenFile("log.txt", os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		log.Print(err)
@@ -50,11 +51,11 @@ func (s *server) write_log(str string) {
 	fmt.Fprintf(file, str+"\n")
 }
 
-func (s *server) not_found(w http.ResponseWriter, req *http.Request) {
+func (s *server) notFound(w http.ResponseWriter, req *http.Request) {
 	tmp, err := template.ParseFiles("404.html")
 
 	if err != nil {
-		s.write_log("Template Parse Error, from function not_found(w http.ResponseWriter, req *http.Request)")
+		s.writeLog("Template Parse Error, from function notFound(w http.ResponseWriter, req *http.Request)")
 		return
 	}
 
@@ -62,13 +63,13 @@ func (s *server) not_found(w http.ResponseWriter, req *http.Request) {
 	err = tmp.Execute(buf, nil)
 
 	if err != nil {
-		s.write_log("Template Execute Error.")
+		s.writeLog("Template Execute Error.")
 	}
 
-	s.last_send_process(w, req, "text/html", buf.Bytes())
+	s.lastSendProcess(w, req, "text/html", buf.Bytes())
 }
 
-func (s *server) get_filesize(name string) int64 {
+func (s *server) getFileSize(name string) int64 {
 	exist, err := os.Stat(name)
 
 	if err != nil {
@@ -78,11 +79,11 @@ func (s *server) get_filesize(name string) int64 {
 	return exist.Size()
 }
 
-func (s *server) read_file(name string, size int64) []byte {
+func (s *server) readFile(name string, size int64) []byte {
 	file, err := os.Open(name)
 	defer file.Close()
 	if err != nil {
-		s.write_log("File Open Error. from function read_file(name sting, size int64) []byte")
+		s.writeLog("File Open Error. from function readFile(name sting, size int64) []byte")
 	}
 
 	buf := make([]byte, size)
@@ -99,31 +100,31 @@ func (s *server) read_file(name string, size int64) []byte {
 	return buf
 }
 
-func (s *server) encode_byte_to_gzip(buf []byte) (*bytes.Buffer, bool) {
+func (s *server) encodeByteToGzip(buf []byte) (*bytes.Buffer, bool) {
 	tmp := new(bytes.Buffer)
 	gw := gzip.NewWriter(tmp)
 
 	_, err := gw.Write(buf)
 
 	if err != nil {
-		s.write_log("Error, gzip encode execute failed.")
+		s.writeLog("Error, gzip encode execute failed.")
 		return tmp, false
 	}
 
 	err = gw.Close()
 
 	if err != nil {
-		s.write_log("Error, gzip.NewWriter().Close() failed.")
+		s.writeLog("Error, gzip.NewWriter().Close() failed.")
 		return tmp, false
 	}
 
 	return tmp, true
 }
 
-func (s *server) last_send_process(w http.ResponseWriter, req *http.Request, mime string, buf []byte) {
+func (s *server) lastSendProcess(w http.ResponseWriter, req *http.Request, mime string, buf []byte) {
 
 	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
-		tmp, check := s.encode_byte_to_gzip(buf)
+		tmp, check := s.encodeByteToGzip(buf)
 		if check {
 			w.Header().Set("Content-Encoding", "gzip")
 			w.Header().Set("Content-Type", mime)
@@ -135,32 +136,32 @@ func (s *server) last_send_process(w http.ResponseWriter, req *http.Request, mim
 	}
 }
 
-func (s *server) send_byte(w http.ResponseWriter, req *http.Request, data send_byte_struct) {
-	size := s.get_filesize(data.filename)
+func (s *server) sendByte(w http.ResponseWriter, req *http.Request, data sendByteStruct) {
+	size := s.getFileSize(data.filename)
 
 	if size == 0 {
-		s.not_found(w, req)
+		s.notFound(w, req)
 		return
 	}
 
-	tmp := s.read_file(data.filename, size)
+	tmp := s.readFile(data.filename, size)
 
 	mime := http.DetectContentType(tmp)
 
-	if data.is_css {
+	if data.isCSS {
 		mime = "text/css"
 	}
 
 	fmt.Println(mime)
 
-	s.last_send_process(w, req, mime, tmp)
+	s.lastSendProcess(w, req, mime, tmp)
 }
 
-func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
+func (s *server) sendHtml(w http.ResponseWriter, req *http.Request) {
 
 	url := req.URL.Path
 
-	if s.is_index.MatchString(url) {
+	if s.isIndex.MatchString(url) {
 
 		page := page{"Alice in Wonderland"}
 
@@ -174,13 +175,28 @@ func (s *server) send_html(w http.ResponseWriter, req *http.Request) {
 		err := tmp.Execute(buf, page)
 
 		if err != nil {
-			s.write_log("Template Execute Error, from function Handler")
+			s.writeLog("Template Execute Error, from function Handler")
 		}
 
-		s.last_send_process(w, req, "text/html", buf.Bytes())
+		s.lastSendProcess(w, req, "text/html", buf.Bytes())
+
+	} else if url == "/movie" {
+		tmp := template.Must(template.ParseFiles(
+			"base.tmpl",
+			"movie.tmpl"))
+		w.Header().Set("Content-Type", "text/html")
+
+		buf := new(bytes.Buffer)
+		err := tmp.Execute(buf, nil)
+
+		if err != nil {
+			s.writeLog("Template execute error.")
+		}
+
+		s.lastSendProcess(w, req, "text/html", buf.Bytes())
 
 	} else {
-		s.not_found(w, req)
+		s.notFound(w, req)
 	}
 }
 
@@ -191,14 +207,17 @@ func (s *server) Handler(w http.ResponseWriter, req *http.Request) {
 
 		fmt.Println(path)
 
-		if s.is_picture.MatchString(path) {
-			data := send_byte_struct{path[1:], false}
-			s.send_byte(w, req, data)
-		} else if s.is_css.MatchString(path) {
-			data := send_byte_struct{path[1:], true}
-			s.send_byte(w, req, data)
+		if s.isPicture.MatchString(path) {
+			data := sendByteStruct{path[1:], false}
+			s.sendByte(w, req, data)
+		} else if s.isCSS.MatchString(path) {
+			data := sendByteStruct{path[1:], true}
+			s.sendByte(w, req, data)
+		} else if s.isVideo.MatchString(path) {
+			data := sendByteStruct{path[1:], false}
+			s.sendByte(w, req, data)
 		} else {
-			s.send_html(w, req)
+			s.sendHtml(w, req)
 		}
 
 	}
@@ -209,9 +228,10 @@ var instance *server = constructor()
 func constructor() *server {
 	i := new(server)
 
-	i.is_index = regexp.MustCompile(`index.html|^/$`)
-	i.is_picture = regexp.MustCompile(`/[[:word:]]*.jpg|png|gif|webp$`)
-	i.is_css = regexp.MustCompile(`/css/[[:word:]]*.css$`)
+	i.isIndex = regexp.MustCompile(`index.html$|^/$`)
+	i.isPicture = regexp.MustCompile(`/[[:word:]]*.jpg|png|gif|webp$`)
+	i.isCSS = regexp.MustCompile(`/css/[[:word:]]*.css$`)
+	i.isVideo = regexp.MustCompile(`videos/[[:word:]]*.mp4|m2ts|webm|mpd|m4s$`)
 
 	return i
 }
